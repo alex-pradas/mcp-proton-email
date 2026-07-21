@@ -26,7 +26,7 @@ SUPPORTED_HINT = "supported: text/*, text/html, application/pdf, text/calendar (
 # runaway CPU/memory (reliable on macOS, where RLIMIT_AS is ignored), with a
 # best-effort address-space cap where the OS honours it.
 MAX_PDF_PAGES = 3000
-PDF_EXTRACT_TIMEOUT_S = 15
+PDF_EXTRACT_TIMEOUT_S = 10  # legit PDFs extract in <1s; bounds the runaway window
 PDF_MEMORY_LIMIT_BYTES = 2 * 1024 * 1024 * 1024  # best-effort (Linux/CI)
 
 
