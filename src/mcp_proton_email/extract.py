@@ -7,7 +7,10 @@ deliberately out of scope for v1.
 import io
 import multiprocessing
 import os
-import sys
+import queue as queue_mod
+import subprocess
+import threading
+import time
 
 from pypdf import PdfReader
 
@@ -22,12 +25,19 @@ SUPPORTED_HINT = "supported: text/*, text/html, application/pdf, text/calendar (
 # streaming) and a SINGLE page whose content stream inflates to gigabytes
 # inside pypdf's parser (page.extract_text() materializes it before any char
 # check — page/stream limits alone can't bound that). So PDF text extraction
-# runs in a separate process we can hard-terminate: a wall-clock timeout bounds
-# runaway CPU/memory (reliable on macOS, where RLIMIT_AS is ignored), with a
-# best-effort address-space cap where the OS honours it.
+# runs in a separate process we actively police: we drain its result queue
+# cooperatively (avoiding a pipe-buffer deadlock on large results), poll its
+# RSS and hard-kill it if it exceeds PDF_CHILD_RSS_LIMIT_MB (the only reliable
+# memory bound on macOS, where RLIMIT_AS is a no-op), enforce a wall-clock
+# timeout, and cap how many run at once.
 MAX_PDF_PAGES = 3000
-PDF_EXTRACT_TIMEOUT_S = 10  # legit PDFs extract in <1s; bounds the runaway window
-PDF_MEMORY_LIMIT_BYTES = 2 * 1024 * 1024 * 1024  # best-effort (Linux/CI)
+PDF_EXTRACT_TIMEOUT_S = 10  # legit PDFs extract in <1s
+PDF_CHILD_RSS_LIMIT_MB = 1024  # kill the worker if it grows past this
+PDF_MEMORY_LIMIT_BYTES = 2 * 1024 * 1024 * 1024  # best-effort RLIMIT_AS (Linux/CI)
+PDF_MAX_CONCURRENCY = 2  # bound simultaneous worker memory footprints
+_PDF_POLL_S = 0.2
+
+_pdf_semaphore = threading.BoundedSemaphore(PDF_MAX_CONCURRENCY)
 
 
 class ExtractionError(Exception):
@@ -103,12 +113,15 @@ def _pdf_extract_inproc(payload: bytes, max_chars: int) -> tuple[str, bool]:
     return text, truncated
 
 
-def _pdf_worker(payload: bytes, max_chars: int, queue) -> None:
-    # Never write to the inherited stdout (the MCP protocol stream); pypdf may
-    # emit warnings. Redirect both streams to devnull.
-    devnull = open(os.devnull, "w")
-    sys.stdout = devnull
-    sys.stderr = devnull
+def _pdf_worker(payload: bytes, max_chars: int, out_queue) -> None:
+    # Redirect fd 1/2 (not just sys.stdout) to devnull so nothing — including a
+    # C-level write or pypdf warning — can reach the MCP stdio protocol stream.
+    try:
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull_fd, 1)
+        os.dup2(devnull_fd, 2)
+    except Exception:
+        pass
     try:
         import resource  # best-effort address-space cap (honoured on Linux)
 
@@ -117,37 +130,90 @@ def _pdf_worker(payload: bytes, max_chars: int, queue) -> None:
         pass
     try:
         text, truncated = _pdf_extract_inproc(payload, max_chars)
-        queue.put(("ok", text, truncated))
+        out_queue.put(("ok", text, truncated))
     except MemoryError:
-        queue.put(("err", "PDF extraction exceeded the memory limit — use save_attachment instead", False))
+        out_queue.put(("err", "PDF extraction exceeded the memory limit — use save_attachment instead", False))
     except ExtractionError as exc:
-        queue.put(("err", str(exc), False))
+        out_queue.put(("err", str(exc), False))
     except Exception as exc:
-        queue.put(("err", f"PDF parsing failed: {type(exc).__name__}", False))
+        out_queue.put(("err", f"PDF parsing failed: {type(exc).__name__}", False))
+
+
+def _child_rss_mb(pid: int) -> float | None:
+    """Resident memory of a child process in MB, or None if unavailable."""
+    try:  # Linux fast path
+        with open(f"/proc/{pid}/statm") as fh:
+            pages = int(fh.read().split()[1])
+        return pages * os.sysconf("SC_PAGE_SIZE") / (1024 * 1024)
+    except Exception:
+        pass
+    try:  # macOS / BSD
+        out = subprocess.run(
+            ["ps", "-o", "rss=", "-p", str(pid)],
+            capture_output=True, text=True, timeout=2,
+        )
+        return int(out.stdout.strip() or 0) / 1024
+    except Exception:
+        return None
 
 
 def _pdf_text(payload: bytes, max_chars: int) -> tuple[str, bool]:
+    # Bound how many heavy workers run at once (an inbox of malicious PDFs must
+    # not spawn N simultaneous multi-GB processes).
+    with _pdf_semaphore:
+        return _pdf_text_supervised(payload, max_chars)
+
+
+def _pdf_text_supervised(payload: bytes, max_chars: int) -> tuple[str, bool]:
     ctx = multiprocessing.get_context("spawn")
-    queue = ctx.Queue()
-    proc = ctx.Process(target=_pdf_worker, args=(payload, max_chars, queue), daemon=True)
+    out_queue = ctx.Queue()
+    proc = ctx.Process(target=_pdf_worker, args=(payload, max_chars, out_queue), daemon=True)
     proc.start()
-    proc.join(PDF_EXTRACT_TIMEOUT_S)
-    if proc.is_alive():
-        proc.terminate()
-        proc.join(5)
+    start = time.monotonic()
+    result = None
+    reason: str | None = None
+    try:
+        while True:
+            try:
+                # get() actively receives — draining a large result as the
+                # worker writes it, so its feeder thread never deadlocks.
+                result = out_queue.get(timeout=_PDF_POLL_S)
+                break
+            except queue_mod.Empty:
+                pass
+            if not proc.is_alive():
+                break  # exited without a result (e.g. OS-killed)
+            rss = _child_rss_mb(proc.pid)
+            if rss is not None and rss > PDF_CHILD_RSS_LIMIT_MB:
+                reason = "memory"
+                break
+            if time.monotonic() - start > PDF_EXTRACT_TIMEOUT_S:
+                reason = "timeout"
+                break
+    finally:
+        proc.join(1)
         if proc.is_alive():
-            proc.kill()
+            proc.terminate()
+            proc.join(5)
+            if proc.is_alive():
+                proc.kill()
+                proc.join(5)
+
+    if reason == "memory":
+        raise ExtractionError(
+            "PDF extraction exceeded the memory limit (possible decompression "
+            "bomb). Use save_attachment to save the file instead."
+        )
+    if reason == "timeout":
         raise ExtractionError(
             "PDF text extraction timed out — the file is too large or malformed "
             "(possible decompression bomb). Use save_attachment to save it instead."
         )
-    try:
-        result = queue.get_nowait()
-    except Exception:
+    if result is None:
         raise ExtractionError(
-            "PDF extraction failed (worker exited without a result — likely the "
-            "memory limit). Use save_attachment to save the file instead."
-        ) from None
+            "PDF extraction failed (worker exited without a result). "
+            "Use save_attachment to save the file instead."
+        )
     status, value, truncated = result
     if status == "err":
         raise ExtractionError(value)

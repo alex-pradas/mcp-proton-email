@@ -4,7 +4,7 @@ Extraction runs in a separate process with a hard wall-clock timeout so a
 runaway page can be terminated instead of OOM-ing the server."""
 
 import io
-import zlib
+import time
 
 import pytest
 from pypdf import PdfWriter
@@ -118,6 +118,37 @@ def test_pdf_text_normal_path_through_subprocess():
     text, truncated = _pdf_text(_blank_pdf(2), max_chars=1000)
     assert "no extractable text" in text
     assert truncated is False
+
+
+def test_large_result_does_not_false_timeout():
+    # A LEGIT PDF whose extracted text exceeds the OS pipe buffer (~64KB) must
+    # succeed — the old join-before-read code deadlocked the worker's feeder
+    # thread and misreported success as a "decompression bomb" timeout.
+    big = _single_page_bomb(120_000)  # ~120K extractable chars -> >64KB result
+    t = time.perf_counter()
+    text, truncated = _pdf_text(big, max_chars=200_000)
+    elapsed = time.perf_counter() - t
+    assert len(text) > 70_000, "large result must come through intact"
+    assert elapsed < 8, f"should return promptly, not hit the timeout ({elapsed:.1f}s)"
+
+
+def test_child_rss_helper_reads_memory():
+    import os as _os
+
+    from mcp_proton_email.extract import _child_rss_mb
+
+    rss = _child_rss_mb(_os.getpid())
+    assert rss is not None and rss > 0
+
+
+def test_memory_bomb_killed_by_rss_cap(monkeypatch):
+    # A worker growing past the RSS cap is killed with a memory error (the only
+    # reliable memory bound on macOS), before the wall-clock timeout.
+    monkeypatch.setattr(extract_module, "PDF_CHILD_RSS_LIMIT_MB", 128)
+    monkeypatch.setattr(extract_module, "PDF_EXTRACT_TIMEOUT_S", 60)
+    bomb = _single_page_bomb(3_000_000)  # inflates well past 128MB in the worker
+    with pytest.raises(ExtractionError, match="memory|timed out"):
+        _pdf_text(bomb, max_chars=20_000)
 
 
 def test_extract_text_pdf_bomb_bounded(monkeypatch):
