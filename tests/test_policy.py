@@ -8,7 +8,6 @@ from fastmcp.exceptions import ToolError
 
 from mcp_proton_email.audit import AuditLog
 from mcp_proton_email.config import Config
-from mcp_proton_email.secrets import SecretProvider
 from mcp_proton_email.server import build_server
 from mcp_proton_email.state import AppState
 
@@ -20,7 +19,7 @@ READ_TOOLS = {"search_messages", "get_message", "list_folders", "get_attachment_
 def make_config(tmp_path: Path, allow_send: bool = False, read_only: bool = False) -> Config:
     return Config(
         imap_host="127.0.0.1", imap_port=1143, smtp_host="127.0.0.1", smtp_port=1025,
-        usernames=("user@example.com",), pass_vault="Agent", pass_item="proton-bridge",
+        usernames=("user@example.com",), pass_vault="Agent", pass_item="proton-bridge", pass_items=None,
         send_from=("user@example.com",), allow_send=allow_send, read_only=read_only,
         attachment_dir=tmp_path, allow_non_loopback=False, tls_ca_file=None,
         max_results=50, max_body_chars=50_000, max_attachment_chars=20_000,
@@ -34,8 +33,7 @@ def registered_tools(config: Config) -> set[str]:
 
 def make_state(tmp_path: Path, **kwargs) -> AppState:
     config = make_config(tmp_path, **kwargs)
-    return AppState(config=config, audit=AuditLog(tmp_path / "audit"),
-                    secrets=SecretProvider("Agent", "proton-bridge"))
+    return AppState(config=config, audit=AuditLog(tmp_path / "audit"))
 
 
 def test_default_registration_no_send(tmp_path):

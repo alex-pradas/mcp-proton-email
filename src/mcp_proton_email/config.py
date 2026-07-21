@@ -60,6 +60,7 @@ class Config:
     usernames: tuple[str, ...]
     pass_vault: str
     pass_item: str
+    pass_items: tuple[str, ...] | None
     send_from: tuple[str, ...]
     allow_send: bool
     read_only: bool
@@ -73,6 +74,23 @@ class Config:
     @property
     def primary_username(self) -> str:
         return self.usernames[0]
+
+    def pass_item_for(self, username: str) -> str:
+        """Proton Pass item title holding this account's Bridge password.
+
+        Each account has its own Bridge login/password. Resolution:
+        - explicit PASS_ITEMS (parallel to USERNAMES) wins;
+        - a single account uses PASS_ITEM (default ``proton-bridge``);
+        - multiple accounts default each item title to the username itself.
+        """
+        if username not in self.usernames:
+            raise KeyError(username)
+        index = self.usernames.index(username)
+        if self.pass_items is not None:
+            return self.pass_items[index]
+        if len(self.usernames) == 1:
+            return self.pass_item
+        return username
 
 
 def load_config() -> Config:
@@ -88,6 +106,18 @@ def load_config() -> Config:
     send_from_raw = _env("SEND_FROM", usernames[0]) or ""
     send_from = tuple(a.strip().lower() for a in send_from_raw.split(",") if a.strip())
 
+    # Optional per-account Pass items, parallel to USERNAMES (each account has
+    # its own Bridge password). If unset, pass_item_for() applies conventions.
+    pass_items_raw = _env("PASS_ITEMS")
+    pass_items = None
+    if pass_items_raw:
+        pass_items = tuple(i.strip() for i in pass_items_raw.split(",") if i.strip())
+        if len(pass_items) != len(usernames):
+            raise ConfigError(
+                f"{ENV_PREFIX}PASS_ITEMS has {len(pass_items)} entries but "
+                f"{ENV_PREFIX}USERNAMES has {len(usernames)} — they must match 1:1."
+            )
+
     cfg = Config(
         imap_host=_env("IMAP_HOST", "127.0.0.1") or "127.0.0.1",
         imap_port=_env_int("IMAP_PORT", 1143),
@@ -96,6 +126,7 @@ def load_config() -> Config:
         usernames=usernames,
         pass_vault=_env("PASS_VAULT", "Agent") or "Agent",
         pass_item=_env("PASS_ITEM", "proton-bridge") or "proton-bridge",
+        pass_items=pass_items,
         send_from=send_from,
         allow_send=_env_bool("ALLOW_SEND", False),
         read_only=_env_bool("READ_ONLY", False),

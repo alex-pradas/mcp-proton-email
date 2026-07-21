@@ -12,7 +12,6 @@ from .audit import AuditLog
 from .config import AUDIT_DIR, Config, load_config
 from .errors import tool_guard
 from .fetch import folder_names
-from .secrets import SecretProvider
 from .state import AppState
 from .tools_read import READ_ONLY_ANNOTATIONS, register_read_tools
 from .tools_send import register_send_tools
@@ -21,11 +20,7 @@ from .tools_write import register_write_tools
 
 def build_server(config: Config | None = None) -> FastMCP:
     config = config or load_config()
-    state = AppState(
-        config=config,
-        audit=AuditLog(AUDIT_DIR),
-        secrets=SecretProvider(config.pass_vault, config.pass_item),
-    )
+    state = AppState(config=config, audit=AuditLog(AUDIT_DIR))
     mcp = FastMCP(
         "proton-mail",
         instructions=(
@@ -69,12 +64,15 @@ def register_diagnostics(mcp: FastMCP, state: AppState) -> None:
         """Active policy flags and limits. Never exposes secrets."""
         cfg = state.config
         try:
-            pass_cli = state.secrets.pass_cli_path
+            pass_cli = state.secret_for(cfg.primary_username).pass_cli_path
         except Exception as exc:
             pass_cli = f"NOT FOUND ({exc})"
         return {
             "pass_cli": pass_cli,
-            "accounts": list(cfg.usernames),
+            "accounts": [
+                {"username": u, "pass_vault": cfg.pass_vault, "pass_item": cfg.pass_item_for(u)}
+                for u in cfg.usernames
+            ],
             "send_enabled": cfg.allow_send,
             "read_only": cfg.read_only,
             "send_from_allowlist": list(cfg.send_from),

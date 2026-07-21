@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Multiple Proton accounts.** List several Bridge usernames in
+  `PROTONMCP_USERNAMES`; each account authenticates with its **own** Bridge
+  password from its **own** Proton Pass item (item title defaults to the
+  username, or set `PROTONMCP_PASS_ITEMS` parallel to `USERNAMES`). Every tool's
+  `account` selector now routes to the right per-account connection and
+  credentials, sends use the selected account's own login, and `runtime_status`
+  reports each account and its resolved Pass item.
 - Documentation site at <https://alex-pradas.github.io/mcp-proton-email/>
   (MkDocs Material, deployed to GitHub Pages on every push to `main`).
 

@@ -226,8 +226,9 @@ no separate config file. Namespace: `PROTONMCP_`.
 | Variable | Default | Meaning |
 |---|---|---|
 | `USERNAMES` | — (required) | Bridge IMAP username(s), comma-separated; first is primary (singular `USERNAME` is accepted too) |
-| `PASS_VAULT` | `Agent` | Proton Pass vault holding the Bridge password |
-| `PASS_ITEM` | `proton-bridge` | Item title within that vault |
+| `PASS_VAULT` | `Agent` | Proton Pass vault holding the Bridge password(s) |
+| `PASS_ITEM` | `proton-bridge` | Item title for a **single** account |
+| `PASS_ITEMS` | — | Per-account item titles, comma-separated **parallel to `USERNAMES`** (multi-account). If unset with multiple accounts, each account's item title defaults to its username |
 | `PASS_CLI` | auto-discovered | Path to the pass-cli binary; set only if it lives somewhere unusual (discovery: this override → `PATH` → Homebrew → `~/.local/bin` → `~/.cargo/bin` → MacPorts) |
 | `ALLOW_SEND` | `false` | Register send tools |
 | `READ_ONLY` | `false` | Kill-switch: disables ALL mutation (drafts, organize, send, saves) |
@@ -381,11 +382,31 @@ PROTONMCP_USERNAMES=you@example.com uv run python scripts/live_smoke_write.py
 
 <!-- --8<-- [start:limitations] -->
 
-## Limitations (v1)
+## Multiple Proton accounts
+
+Add every account's Bridge username to `PROTONMCP_USERNAMES` (comma-separated).
+Each account has its **own** Bridge password in its **own** Proton Pass item —
+by default the item title is the account's username, or set `PROTONMCP_PASS_ITEMS`
+(parallel to `USERNAMES`) to name them explicitly. Every tool takes an optional
+`account` selector (defaulting to the first username), so you can read, draft,
+and organize per account. Each account authenticates with its own credentials
+and only ever sends as its own addresses.
+
+```bash
+claude mcp add --scope user proton-mail \
+  --env PROTONMCP_USERNAMES=you@example.com,work@company.com \
+  --env PROTONMCP_PASS_ITEMS=proton-bridge-personal,proton-bridge-work \
+  -- uvx mcp-proton-email
+```
+
+To **send** from more than one account, list each sending address in
+`PROTONMCP_SEND_FROM` (the allowlist stays authoritative — it is never expanded
+implicitly). `runtime_status` shows each account and the Pass item it resolves
+to (never the secret).
+
+## Limitations
 
 - Your **Mac must be on** — Claude reaches Proton only through this machine.
-- Single account tested (multi-account config shape exists via
-  comma-separated `USERNAMES`).
 - No OCR: image-only/scanned PDFs yield no extracted text
   (`save_attachment` still works on them). Office formats (docx/xlsx) are
   not extracted.

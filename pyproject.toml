@@ -1,6 +1,6 @@
 [project]
 name = "mcp-proton-email"
-version = "0.1.0"
+version = "0.2.0"
 description = "Safe MCP server for Proton Mail via Proton Bridge (localhost IMAP/SMTP)"
 readme = "README.md"
 requires-python = ">=3.10"

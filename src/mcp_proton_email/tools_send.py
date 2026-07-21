@@ -61,10 +61,11 @@ async def _confirm_with_human(ctx: Context, msg: EmailMessage, tool: str) -> Non
 
 
 def _smtp_send(state: AppState, account: str | None, msg: EmailMessage) -> None:
-    username = account or state.config.primary_username
+    username = state.validate_account(account)
     with smtplib.SMTP(state.config.smtp_host, state.config.smtp_port, timeout=60) as smtp:
         smtp.starttls(context=bridge_ssl_context(state.config.smtp_host, state.config.tls_ca_file))
-        smtp.login(username, state.secrets.get_password())
+        # each account authenticates with its OWN Bridge password
+        smtp.login(username, state.secret_for(username).get_password())
         smtp.send_message(msg)  # strips Bcc header, keeps Bcc recipients
 
 
@@ -100,7 +101,8 @@ def register_send_tools(mcp: FastMCP, state: AppState) -> None:
         Requires PROTONMCP_ALLOW_SEND=true and an approving human; otherwise refuses.
         """
         state.require_send("send_email")
-        sender = state.validate_from(None)
+        state.validate_account(account)
+        sender = state.validate_from(None, account)
         msg = build_message(
             sender, validate_addresses(to, "to"), subject, body,
             cc=validate_addresses(cc, "cc"), bcc=validate_addresses(bcc, "bcc"),
@@ -113,7 +115,8 @@ def register_send_tools(mcp: FastMCP, state: AppState) -> None:
     async def _reply_impl(ctx: Context, tool: str, folder: str, uid: int, body: str,
                           reply_all: bool, account: str | None) -> dict[str, Any]:
         state.require_send(tool)
-        sender = state.validate_from(None)
+        state.validate_account(account)
+        sender = state.validate_from(None, account)
 
         def compose():
             client_run = state.connection(account)
@@ -161,7 +164,8 @@ def register_send_tools(mcp: FastMCP, state: AppState) -> None:
                       account: str | None = None) -> dict[str, Any]:
         """Forward a message (plain text, no attachments in v1), after human approval."""
         state.require_send("forward")
-        sender = state.validate_from(None)
+        state.validate_account(account)
+        sender = state.validate_from(None, account)
 
         def compose():
             original = state.connection(account).run(lambda c: fetch_full(c, folder, uid))
