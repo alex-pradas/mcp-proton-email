@@ -32,6 +32,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/alex-pradas/mcp-proton-email"
+Documentation = "https://alex-pradas.github.io/mcp-proton-email/"
 Repository = "https://github.com/alex-pradas/mcp-proton-email"
 Issues = "https://github.com/alex-pradas/mcp-proton-email/issues"
 
@@ -49,4 +50,8 @@ packages = ["src/mcp_proton_email"]
 dev = [
     "pytest>=9.1.1",
     "pytest-cov>=4.0.0",
+]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.7.0",
 ]

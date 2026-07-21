@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Documentation site at <https://alex-pradas.github.io/mcp-proton-email/>
+  (MkDocs Material, deployed to GitHub Pages on every push to `main`).
+
 ## [0.1.0] - 2026-07-21
 
 Initial release. A safe-by-default MCP server for Proton Mail via Proton

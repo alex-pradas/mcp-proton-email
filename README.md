@@ -1,3 +1,5 @@
+<!-- --8<-- [start:overview] -->
+
 # mcp-proton-email
 
 A **safe-by-default MCP server** that gives Claude access to your Proton Mail
@@ -29,6 +31,10 @@ email could exploit**:
 | Attachments | `save_attachment` — writes only inside an allowlisted download directory, path-traversal safe | on |
 | Send | `send_email`, `reply`, `reply_all`, `forward` — each gated by a human approval prompt | **off** |
 | Diagnostics | `connection_status`, `runtime_status`, `get_audit_log` | on |
+
+<!-- --8<-- [end:overview] -->
+
+<!-- --8<-- [start:install] -->
 
 ## Requirements
 
@@ -186,6 +192,10 @@ uv tool upgrade mcp-proton-email     # when you want to update
 
 and use `"command": "/Users/<you>/.local/bin/mcp-proton-email"` with no args.
 
+<!-- --8<-- [end:install] -->
+
+<!-- --8<-- [start:enabling-send] -->
+
 ## Enabling send
 
 Send tools don't exist until you opt in. Re-register with:
@@ -203,6 +213,10 @@ it (MCP elicitation). On clients that don't support elicitation, send tools
 refuse; by design there is **no fallback** a model could satisfy on its own.
 The `From` address must be in the allowlist (`PROTONMCP_SEND_FROM`, default:
 your username).
+
+<!-- --8<-- [end:enabling-send] -->
+
+<!-- --8<-- [start:configuration] -->
 
 ## Configuration
 
@@ -273,6 +287,10 @@ asking permission for each call:
 > approval prompt**. There is no flag to disable it — "fully trusted" means
 > everything except self-approving sends.
 
+<!-- --8<-- [end:configuration] -->
+
+<!-- --8<-- [start:security-model] -->
+
 ## Security model
 
 - **Loopback only**: the server refuses to start against a non-loopback
@@ -310,6 +328,10 @@ asking permission for each call:
   model provider (e.g. Anthropic) as part of the normal API data flow. This
   server minimizes what's exposed, but it cannot change that flow.
 
+<!-- --8<-- [end:security-model] -->
+
+<!-- --8<-- [start:troubleshooting] -->
+
 ## Troubleshooting
 
 | Symptom | Cause / fix |
@@ -326,6 +348,10 @@ asking permission for each call:
 3.14's `imaplib` (read-only `file` property). This server ships a small,
 version-tolerant compatibility shim in `src/mcp_proton_email/imap.py` — no
 action needed, documented so future upgrades can drop it.
+
+<!-- --8<-- [end:troubleshooting] -->
+
+<!-- --8<-- [start:development] -->
 
 ## Development
 
@@ -350,6 +376,10 @@ PROTONMCP_USERNAMES=you@example.com uv run python scripts/live_smoke_write.py
 # mutations ONLY on a draft it creates itself, which ends in Trash
 ```
 
+<!-- --8<-- [end:development] -->
+
+<!-- --8<-- [start:limitations] -->
+
 ## Limitations (v1)
 
 - Your **Mac must be on** — Claude reaches Proton only through this machine.
@@ -362,13 +392,18 @@ PROTONMCP_USERNAMES=you@example.com uv run python scripts/live_smoke_write.py
   attachments.
 - Permanent deletion is deliberately impossible — use the Proton apps.
 
+<!-- --8<-- [end:limitations] -->
+
 ## See also
 
-- [llms-install.md](llms-install.md) — condensed install guide (uvx / pip / uv
-  tool) suitable for LLM-assisted setup.
-- [CHANGELOG.md](CHANGELOG.md) — release notes.
-- [RELEASING.md](RELEASING.md) — maintainer release process.
+- [llms-install.md](https://github.com/alex-pradas/mcp-proton-email/blob/main/llms-install.md)
+  — condensed install guide (uvx / pip / uv tool) suitable for LLM-assisted
+  setup.
+- [CHANGELOG.md](https://github.com/alex-pradas/mcp-proton-email/blob/main/CHANGELOG.md)
+  — release notes.
+- [RELEASING.md](https://github.com/alex-pradas/mcp-proton-email/blob/main/RELEASING.md)
+  — maintainer release process.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/alex-pradas/mcp-proton-email/blob/main/LICENSE)

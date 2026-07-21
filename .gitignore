@@ -39,6 +39,9 @@ coverage.xml
 .env
 .envrc
 
+# MkDocs build output
+site/
+
 # UV — keep uv.lock for reproducibility
 
 # personal design-history doc, kept locally but not distributed
