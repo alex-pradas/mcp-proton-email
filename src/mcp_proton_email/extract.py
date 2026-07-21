@@ -14,6 +14,12 @@ from .mailmsg import html_to_text
 TEXT_LIKE_PREFIXES = ("text/",)
 SUPPORTED_HINT = "supported: text/*, text/html, application/pdf, text/calendar (.ics)"
 
+# A malicious PDF under the byte cap can still carry FlateDecode streams that
+# inflate ~1000x. We bound the many-pages vector two ways: refuse absurd page
+# counts up front, and stream page text with early-exit at the char budget so
+# peak memory stays ~max_chars instead of materializing every page.
+MAX_PDF_PAGES = 3000
+
 
 class ExtractionError(Exception):
     pass
@@ -30,8 +36,8 @@ def extract_text(payload: bytes, content_type: str, filename: str, max_chars: in
     name = filename.lower()
 
     if content_type == "application/pdf" or name.endswith(".pdf"):
-        text = _pdf_text(payload)
-    elif content_type == "text/html" or name.endswith((".html", ".htm")):
+        return _pdf_text(payload, max_chars)
+    if content_type == "text/html" or name.endswith((".html", ".htm")):
         text = html_to_text(payload.decode("utf-8", errors="replace"))
     elif content_type.startswith(TEXT_LIKE_PREFIXES) or name.endswith((".txt", ".csv", ".ics", ".md")):
         text = payload.decode("utf-8", errors="replace")
@@ -43,13 +49,45 @@ def extract_text(payload: bytes, content_type: str, filename: str, max_chars: in
     return text[:max_chars], truncated
 
 
-def _pdf_text(payload: bytes) -> str:
+def _accumulate_pages(pages, max_chars: int) -> tuple[str, bool]:
+    """Stream page text, stopping once the char budget is reached so a
+    many-page bomb cannot force us to hold every page in memory at once."""
+    parts: list[str] = []
+    total = 0
+    truncated = False
+    for page in pages:
+        try:
+            chunk = page.extract_text() or ""
+        except Exception:
+            chunk = ""
+        parts.append(chunk.strip())
+        total += len(chunk)
+        if total >= max_chars:
+            truncated = True
+            break
+    text = "\n\n".join(p for p in parts if p).strip()
+    if len(text) > max_chars:
+        text = text[:max_chars]
+        truncated = True
+    return text, truncated
+
+
+def _pdf_text(payload: bytes, max_chars: int) -> tuple[str, bool]:
     try:
         reader = PdfReader(io.BytesIO(payload))
-        pages = [page.extract_text() or "" for page in reader.pages]
+        page_count = len(reader.pages)
     except Exception as exc:
         raise ExtractionError(f"PDF parsing failed: {type(exc).__name__}") from exc
-    text = "\n\n".join(p.strip() for p in pages if p.strip())
+    if page_count > MAX_PDF_PAGES:
+        raise ExtractionError(
+            f"PDF has {page_count} pages, over the {MAX_PDF_PAGES}-page extraction "
+            "limit — use save_attachment to save the file instead"
+        )
+    text, truncated = _accumulate_pages(reader.pages, max_chars)
     if not text:
-        return "[PDF contains no extractable text — likely scanned/image-only. Use save_attachment to save the file.]"
-    return text
+        return (
+            "[PDF contains no extractable text — likely scanned/image-only. "
+            "Use save_attachment to save the file.]",
+            False,
+        )
+    return text, truncated
