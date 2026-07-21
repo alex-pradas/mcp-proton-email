@@ -63,7 +63,7 @@ async def _confirm_with_human(ctx: Context, msg: EmailMessage, tool: str) -> Non
 def _smtp_send(state: AppState, account: str | None, msg: EmailMessage) -> None:
     username = account or state.config.primary_username
     with smtplib.SMTP(state.config.smtp_host, state.config.smtp_port, timeout=60) as smtp:
-        smtp.starttls(context=bridge_ssl_context())
+        smtp.starttls(context=bridge_ssl_context(state.config.smtp_host, state.config.tls_ca_file))
         smtp.login(username, state.secrets.get_password())
         smtp.send_message(msg)  # strips Bcc header, keeps Bcc recipients
 

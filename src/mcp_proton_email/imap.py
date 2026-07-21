@@ -12,7 +12,7 @@ from datetime import date, datetime
 from imapclient import IMAPClient
 from imapclient.imap4 import IMAP4WithTimeout
 
-from .config import Config
+from .config import Config, is_loopback
 from .secrets import SecretProvider
 
 
@@ -33,12 +33,32 @@ def _open_compat(self, host: str = "", port: int = 143, timeout: float | None = 
 IMAP4WithTimeout.open = _open_compat
 
 
-def bridge_ssl_context() -> ssl.SSLContext:
-    # Loopback-only Bridge presents a self-signed cert; verification is
-    # intentionally relaxed for it (spec 4) and this fact is documented.
+def bridge_ssl_context(host: str, ca_file: str | None = None) -> ssl.SSLContext:
+    """TLS context for talking to Bridge, scoped to the host.
+
+    - **Loopback** (the normal case): Bridge presents a self-signed cert on
+      127.0.0.1 with no network path to intercept, so verification is
+      intentionally disabled (CERT_NONE). This is the only place TLS is relaxed.
+    - **Non-loopback** (the discouraged ALLOW_NON_LOOPBACK path, e.g. a remote
+      Bridge over a tunnel): traffic crosses a network an attacker could sit on,
+      so the cert MUST be verified. Since Bridge's cert is self-signed, the user
+      pins it via PROTONMCP_TLS_CA_FILE; otherwise system CAs are used.
+    """
     ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
+    if is_loopback(host):
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+    ctx.check_hostname = True
+    ctx.verify_mode = ssl.CERT_REQUIRED
+    if ca_file is not None:
+        import os
+        if not os.path.isfile(ca_file):
+            raise ValueError(
+                f"PROTONMCP_TLS_CA_FILE={ca_file!r} does not exist; it must point "
+                "to the certificate of your non-loopback Bridge."
+            )
+        ctx.load_verify_locations(cafile=ca_file)
     return ctx
 
 
@@ -59,7 +79,9 @@ class MailConnection:
         )
         # imapclient 3.1.0's starttls() assigns IMAP4.file, which is a read-only
         # property on Python 3.14 — stdlib imaplib's own starttls works, use it.
-        client._imap.starttls(ssl_context=bridge_ssl_context())
+        client._imap.starttls(
+            ssl_context=bridge_ssl_context(self._config.imap_host, self._config.tls_ca_file)
+        )
         client.login(self.username, self._secrets.get_password())
         return client
 

@@ -22,7 +22,7 @@ def make_config(tmp_path: Path, allow_send: bool = False, read_only: bool = Fals
         imap_host="127.0.0.1", imap_port=1143, smtp_host="127.0.0.1", smtp_port=1025,
         usernames=("user@example.com",), pass_vault="Agent", pass_item="proton-bridge",
         send_from=("user@example.com",), allow_send=allow_send, read_only=read_only,
-        attachment_dir=tmp_path, allow_non_loopback=False,
+        attachment_dir=tmp_path, allow_non_loopback=False, tls_ca_file=None,
         max_results=50, max_body_chars=50_000, max_attachment_chars=20_000,
     )
 
