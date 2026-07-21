@@ -1,17 +1,60 @@
-name: publish
+name: Test and Publish
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
 
 jobs:
+  test:
+    strategy:
+      matrix:
+        # macOS is the runtime target (Proton Bridge); Linux catches the
+        # platform-divergent memory/subprocess paths cheaply.
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.14"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Run tests
+        run: uv run pytest --cov=mcp_proton_email --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: false
+
   publish:
+    needs: test
     runs-on: ubuntu-latest
+    if: github.event_name == 'release'
     environment: pypi
     permissions:
       id-token: write  # PyPI Trusted Publishing (OIDC) — no tokens stored anywhere
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - run: uv build
-      - uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

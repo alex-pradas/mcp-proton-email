@@ -1,0 +1,39 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+#
+# NOTE: This server runs LOCALLY on the user's Mac — it needs Proton Bridge and
+# the Proton Pass CLI installed and running on the same machine (see
+# llms-install.md). Smithery's `stdio` type launches it on the user's host via
+# the command below; it cannot run in a hosted/cloud environment.
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required:
+      - usernames
+    properties:
+      usernames:
+        type: string
+        description: "Bridge IMAP username(s), comma-separated (usually your Proton address)"
+      allowSend:
+        type: boolean
+        default: false
+        description: "Enable send tools (each send still requires human approval via elicitation)"
+      readOnly:
+        type: boolean
+        default: false
+        description: "Kill-switch: disable ALL mutation (drafts, organize, send, attachment-save)"
+      passVault:
+        type: string
+        default: "Agent"
+        description: "Proton Pass vault holding the Bridge password"
+  commandFunction: |-
+    (config) => ({
+      command: "uvx",
+      args: ["mcp-proton-email"],
+      env: {
+        PROTONMCP_USERNAMES: config.usernames,
+        PROTONMCP_ALLOW_SEND: String(config.allowSend || false),
+        PROTONMCP_READ_ONLY: String(config.readOnly || false),
+        PROTONMCP_PASS_VAULT: config.passVault || "Agent"
+      }
+    })

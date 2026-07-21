@@ -1,9 +1,11 @@
 # Releasing (maintainer notes)
 
 Publishing uses **PyPI Trusted Publishing** (GitHub Actions OIDC) — there are
-no API tokens to store or rotate.
+no API tokens to store or rotate. The `Test and Publish` workflow
+(`.github/workflows/publish.yml`) runs tests on every push/PR and publishes to
+PyPI when a **GitHub Release is published**.
 
-## One-time setup (already done once; repeat only for a new project)
+## One-time setup
 
 1. PyPI account with 2FA.
 2. PyPI → *Your account* → *Publishing* → **Add a new pending publisher**:
@@ -11,17 +13,23 @@ no API tokens to store or rotate.
    - Owner: `alex-pradas`  ·  Repository: `mcp-proton-email`
    - Workflow: `publish.yml`  ·  Environment: `pypi`
 3. GitHub repo → *Settings* → *Environments* → create environment `pypi`
-   (optionally require reviewers for a manual gate).
+   (optionally require a reviewer for a manual gate before each publish).
 
 ## Each release
 
-```bash
-# bump version in pyproject.toml, commit, push, then:
-git tag v0.1.0
-git push origin v0.1.0
-```
+1. Bump `version` in `pyproject.toml`.
+2. Move the `Unreleased` notes into a new dated section in `CHANGELOG.md`.
+3. Commit (e.g. `vX.Y.Z: <summary>`) and push to `main`; confirm CI is green.
+4. Tag and create a **GitHub Release** — the Release being *published* triggers
+   the publish job:
+   ```bash
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
+   gh release create vX.Y.Z --title "vX.Y.Z" --notes-from-tag
+   ```
+   (or create the Release in the GitHub UI).
 
-The `publish` workflow builds (`uv build`) and uploads to PyPI. Verify with:
+Verify:
 
 ```bash
 uvx mcp-proton-email@latest --help 2>&1 | head -1   # cold-start from PyPI

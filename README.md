@@ -362,6 +362,13 @@ PROTONMCP_USERNAMES=you@example.com uv run python scripts/live_smoke_write.py
   attachments.
 - Permanent deletion is deliberately impossible — use the Proton apps.
 
+## See also
+
+- [llms-install.md](llms-install.md) — condensed install guide (uvx / pip / uv
+  tool) suitable for LLM-assisted setup.
+- [CHANGELOG.md](CHANGELOG.md) — release notes.
+- [RELEASING.md](RELEASING.md) — maintainer release process.
+
 ## License
 
 [MIT](LICENSE)
