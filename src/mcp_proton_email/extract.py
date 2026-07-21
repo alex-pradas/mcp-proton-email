@@ -21,21 +21,19 @@ TEXT_LIKE_PREFIXES = ("text/",)
 SUPPORTED_HINT = "supported: text/*, text/html, application/pdf, text/calendar (.ics)"
 
 # A malicious PDF under the byte cap can carry FlateDecode streams that inflate
-# ~1000x. Two vectors: many pages (bounded by MAX_PDF_PAGES + between-page
-# streaming) and a SINGLE page whose content stream inflates to gigabytes
-# inside pypdf's parser (page.extract_text() materializes it before any char
-# check — page/stream limits alone can't bound that). So PDF text extraction
-# runs in a separate process we actively police: we drain its result queue
-# cooperatively (avoiding a pipe-buffer deadlock on large results), poll its
-# RSS and hard-kill it if it exceeds PDF_CHILD_RSS_LIMIT_MB (the only reliable
+# ~1000x. pypdf 6.14.2 caps single-stream decompression (~75MB) which mitigates
+# much of the single-page inflate vector, but we don't rely on that alone: PDF
+# text extraction runs in a separate process we actively police — drain its
+# result queue cooperatively (avoiding a pipe-buffer deadlock on large results),
+# poll its RSS and hard-kill past PDF_CHILD_RSS_LIMIT_MB (the only reliable
 # memory bound on macOS, where RLIMIT_AS is a no-op), enforce a wall-clock
-# timeout, and cap how many run at once.
+# timeout, and cap concurrency. Defense in depth over pypdf's own guards.
 MAX_PDF_PAGES = 3000
 PDF_EXTRACT_TIMEOUT_S = 10  # legit PDFs extract in <1s
 PDF_CHILD_RSS_LIMIT_MB = 1024  # kill the worker if it grows past this
 PDF_MEMORY_LIMIT_BYTES = 2 * 1024 * 1024 * 1024  # best-effort RLIMIT_AS (Linux/CI)
 PDF_MAX_CONCURRENCY = 2  # bound simultaneous worker memory footprints
-_PDF_POLL_S = 0.2
+_PDF_POLL_S = 0.1
 
 _pdf_semaphore = threading.BoundedSemaphore(PDF_MAX_CONCURRENCY)
 
@@ -191,13 +189,23 @@ def _pdf_text_supervised(payload: bytes, max_chars: int) -> tuple[str, bool]:
                 reason = "timeout"
                 break
     finally:
-        proc.join(1)
-        if proc.is_alive():
+        if reason in ("memory", "timeout"):
+            # Condemned worker: kill immediately — don't grant a runaway extra
+            # runtime to allocate while we wait for a natural exit.
             proc.terminate()
             proc.join(5)
             if proc.is_alive():
                 proc.kill()
                 proc.join(5)
+        else:
+            # Clean success (or the child already exited): reap it.
+            proc.join(1)
+            if proc.is_alive():
+                proc.terminate()
+                proc.join(5)
+                if proc.is_alive():
+                    proc.kill()
+                    proc.join(5)
 
     if reason == "memory":
         raise ExtractionError(
