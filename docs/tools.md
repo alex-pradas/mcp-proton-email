@@ -13,16 +13,20 @@ structural, twice.
 |---|---|---|
 | [Read](#read-tools) | 6 | always |
 | [Diagnostics](#diagnostics) | 3 | always |
-| [Drafts](#draft-tools) | 4 | `PROTONMCP_READ_ONLY` is not `true` |
-| [Organize](#organize-tools) | 11 | `PROTONMCP_READ_ONLY` is not `true` |
-| [Attachments](#attachments) | 1 | `PROTONMCP_READ_ONLY` is not `true` |
-| [Send](#send-tools) | 4 | `PROTONMCP_ALLOW_SEND=true` and not read-only |
+| [Drafts](#draft-tools) | 4 | `PROTONMCP_READ_ONLY` not enabled |
+| [Organize](#organize-tools) | 11 | `PROTONMCP_READ_ONLY` not enabled |
+| [Attachments](#attachments) | 1 | `PROTONMCP_READ_ONLY` not enabled |
+| [Send](#send-tools) | 4 | `PROTONMCP_ALLOW_SEND` enabled and not read-only |
+
+Boolean variables treat `true`, `1`, or `yes` (case-insensitive) as enabled.
 
 ## Conventions
 
 - **`account`** — every mail tool accepts an optional `account` parameter
   (one of the configured `PROTONMCP_USERNAMES`; defaults to the first,
-  primary one). It is omitted from the parameter tables below.
+  primary one) — every tool except `runtime_status` and `get_audit_log`,
+  which never touch the mailbox. It is omitted from the parameter tables
+  below.
 - **Addressing** — messages are identified by `folder` + `uid`, exactly as
   returned by [`search_messages`](#search_messages) or
   [`get_thread`](#get_thread).
@@ -35,8 +39,9 @@ structural, twice.
 - **Auditing** — every mutation (drafts, organize, saves, sends) is appended
   to the local audit log and can be read back with
   [`get_audit_log`](#get_audit_log).
-- **Errors** — tool errors are collapsed to uniform messages so nothing
-  sensitive can leak through exception text.
+- **Errors** — unexpected exceptions are collapsed to
+  `<tool> failed: <ExceptionType>: <message>` with secrets redacted and
+  length capped; deliberate tool errors keep their (secret-free) detail.
 
 ## Read tools
 
@@ -177,7 +182,8 @@ Create a draft in Proton's Drafts folder.
 ### update_draft
 
 Replace fields of an existing draft (addressed by its Drafts-folder uid).
-Omitted fields keep their current values.
+Omitted fields keep their current values (the preserved body is the old
+draft's plain-text extraction, truncated at `MAX_BODY_CHARS`).
 
 | Parameter | Type | Default | Notes |
 |---|---|---|---|
@@ -197,7 +203,7 @@ Draft a reply to a message, quoting the original. Nothing is sent.
 | `folder` | str | required | of the message being replied to |
 | `uid` | int | required | |
 | `body` | str | required | your reply text (original is quoted below it) |
-| `reply_all` | bool | `false` | cc all other recipients, excluding your own addresses |
+| `reply_all` | bool | `false` | cc the other recipients, excluding the reply target and your own addresses (`SEND_FROM` plus the primary username) |
 
 **Returns:** `{folder, uid}` of the draft.
 
@@ -271,8 +277,8 @@ Remove a Proton label from a message — the message itself is untouched.
 | `folder` / `uid` | str / int | required | |
 | `label` | str | required | |
 
-**Returns:** `{removed: bool}` — `false` (a recorded no-op) if the message
-wasn't found under that label.
+**Returns:** `{removed: bool, label}` — `removed: false` (a recorded no-op)
+if the message wasn't found under that label.
 
 **Notes:** matched by `Message-ID` inside the label folder, so the message
 needs one.
@@ -316,7 +322,8 @@ Disabled by `PROTONMCP_READ_ONLY=true`.
 ### save_attachment
 
 Save one attachment into the allowlisted download directory — the only place
-this server can ever write a file.
+this server can ever write mail content. (Its only other file output is its
+own audit log in `~/.mcp-proton-email/`.)
 
 | Parameter | Type | Default | Notes |
 |---|---|---|---|
@@ -328,19 +335,23 @@ this server can ever write a file.
 
 **Notes:** writes only inside `PROTONMCP_ATTACHMENT_DOWNLOAD_DIR`; filenames
 are sanitized against traversal, absolute paths and symlinks; existing files
-are **never overwritten**; the file is created with mode `0600`; every save
-is audited with path and size.
+are **never overwritten**; the file's permissions are set to `0600`; every
+save is audited with path and size.
 
 ## Send tools
 
-These tools exist only when `PROTONMCP_ALLOW_SEND=true` (and not read-only).
+These tools exist only when `PROTONMCP_ALLOW_SEND` is enabled (and not
+read-only).
 Every send raises an **MCP elicitation** — your client renders an
 approve/decline prompt showing from/to/cc/bcc/subject and a body preview, and
 only *your* click approves it. The model cannot answer the prompt. On clients
 without elicitation support, send tools refuse; **there is no fallback**
-confirmation path by design. The `From` address is validated against the
-`PROTONMCP_SEND_FROM` allowlist, and every attempt is audited as `sent` or
-`error`. Annotations: `destructiveHint: true`, `openWorldHint: true`.
+confirmation path by design. The `From` address is always the first
+`PROTONMCP_SEND_FROM` entry — there is no From parameter — and is checked
+against the allowlist. Every transmission is audited as `sent`, or `error`
+if SMTP fails after approval; a send you decline, or one refused before
+approval, performs no action and leaves no audit entry. Annotations:
+`destructiveHint: true`, `openWorldHint: true`.
 
 ### send_email
 
@@ -369,7 +380,8 @@ set.
 ### reply_all
 
 Reply to all recipients of a message, after human approval. The cc list is
-the original recipients minus your own addresses.
+the original recipients minus the reply target and your own addresses (the
+`PROTONMCP_SEND_FROM` allowlist plus the primary username).
 
 | Parameter | Type | Default | Notes |
 |---|---|---|---|

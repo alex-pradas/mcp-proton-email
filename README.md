@@ -225,10 +225,10 @@ no separate config file. Namespace: `PROTONMCP_`.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `USERNAMES` | — (required) | Bridge IMAP username(s), comma-separated; first is primary |
+| `USERNAMES` | — (required) | Bridge IMAP username(s), comma-separated; first is primary (singular `USERNAME` is accepted too) |
 | `PASS_VAULT` | `Agent` | Proton Pass vault holding the Bridge password |
 | `PASS_ITEM` | `proton-bridge` | Item title within that vault |
-| `PASS_CLI` | auto-discovered | Path to the pass-cli binary; set only if it lives somewhere unusual (discovery: this override → `PATH` → Homebrew/MacPorts/`~/.local/bin`/`~/.cargo/bin`) |
+| `PASS_CLI` | auto-discovered | Path to the pass-cli binary; set only if it lives somewhere unusual (discovery: this override → `PATH` → Homebrew → `~/.local/bin` → `~/.cargo/bin` → MacPorts) |
 | `ALLOW_SEND` | `false` | Register send tools |
 | `READ_ONLY` | `false` | Kill-switch: disables ALL mutation (drafts, organize, send, saves) |
 | `SEND_FROM` | primary username | Allowlist of From addresses, comma-separated |
@@ -239,7 +239,7 @@ no separate config file. Namespace: `PROTONMCP_`.
 | `TLS_CA_FILE` | — | CA/cert to verify a **non-loopback** self-signed Bridge against (only used off-loopback) |
 | `MAX_RESULTS` | `50` (cap 200) | Search result cap |
 | `MAX_BODY_CHARS` | `50000` (cap 200000) | Body truncation |
-| `MAX_ATTACHMENT_CHARS` | `20000` | Extracted-text cap (source file ≤ 10 MB) |
+| `MAX_ATTACHMENT_CHARS` | `20000` (cap 200000) | Extracted-text cap (source file ≤ 10 MB) |
 
 ### Profiles
 
@@ -315,8 +315,9 @@ asking permission for each call:
   files are never overwritten.
 - **Audit log**: every mutation is appended to
   `~/.mcp-proton-email/audit.log` (dir `0700`, file `0600`, **no message
-  bodies**), rotated at 5 MB. It does record recipients and subject lines of
-  sends/drafts (intentional accountability — these can be sensitive), and the
+  bodies**), rotated at 5 MB. It does record what each mutation composed —
+  recipients and subject lines of sends and new drafts (intentional
+  accountability — these can be sensitive), and the
   model can read it back via `get_audit_log` to answer "what did you do?".
 - **Secret scrubbing**: the Bridge password is scrubbed from any error/log
   output by exact value (registered when read into memory), backed by
@@ -359,8 +360,8 @@ action needed, documented so future upgrades can drop it.
 git clone https://github.com/alex-pradas/mcp-proton-email.git
 cd mcp-proton-email
 uv sync
-uv run pytest                 # 90 tests: policy gating, path safety,
-                              # send gate, parsing — no Bridge required
+uv run pytest                 # policy gating, path safety, send gate,
+                              # parsing — no Bridge required
 ```
 
 To run your working copy instead of the PyPI release, register it with:
@@ -390,7 +391,9 @@ PROTONMCP_USERNAMES=you@example.com uv run python scripts/live_smoke_write.py
   not extracted.
 - `forward` / `create_forward_draft` carry the message text, not its
   attachments.
-- Permanent deletion is deliberately impossible — use the Proton apps.
+- Permanent deletion is deliberately impossible — use the Proton apps. (The
+  one expunging operation is `update_draft`, which replaces the previous
+  version of the draft it edits.)
 
 <!-- --8<-- [end:limitations] -->
 
