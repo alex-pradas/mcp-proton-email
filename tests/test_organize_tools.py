@@ -25,8 +25,8 @@ class OrganizeFakeClient:
         self.expunged: list[int] = []
         self.selected = "INBOX"
         self.raw = (
-            b"From: SJ <no-reply@sj.se>\r\nSubject: Kvitto\r\n"
-            b"Message-ID: <orig-1@sj.se>\r\nContent-Type: text/plain\r\n\r\nbody"
+            b"From: Rail <no-reply@rail.example>\r\nSubject: Receipt\r\n"
+            b"Message-ID: <orig-1@rail.example>\r\nContent-Type: text/plain\r\n\r\nbody"
         )
 
     def list_folders(self):

@@ -118,8 +118,8 @@ def test_extract_oversized_refused():
 def test_extract_text_and_html():
     text, _ = extract_text(b"hello receipt 42.50 EUR", "text/plain", "r.txt", 1000)
     assert "42.50" in text
-    text, _ = extract_text(b"<p>total <b>99 SEK</b></p>", "text/html", "r.html", 1000)
-    assert text == "total 99 SEK"
+    text, _ = extract_text(b"<p>total <b>99 EUR</b></p>", "text/html", "r.html", 1000)
+    assert text == "total 99 EUR"
 
 
 # -- audit -------------------------------------------------------------------------

@@ -23,9 +23,9 @@ class DraftFakeClient:
         self.next_uid = 100
         self.expunged: list[int] = []
         original = (
-            b"From: SJ <no-reply@sj.se>\r\nTo: user@example.com\r\nCc: other@x.se\r\n"
-            b"Subject: Kvitto juni\r\nMessage-ID: <orig-1@sj.se>\r\n"
-            b"Content-Type: text/plain\r\n\r\nYour receipt: 450 SEK train Stockholm."
+            b"From: Rail <no-reply@rail.example>\r\nTo: user@example.com\r\nCc: other@x.se\r\n"
+            b"Subject: Receipt June\r\nMessage-ID: <orig-1@rail.example>\r\n"
+            b"Content-Type: text/plain\r\n\r\nYour receipt: 42.00 EUR train ticket."
         )
         self.messages["INBOX"][1] = original
         self.selected = "INBOX"
@@ -110,13 +110,13 @@ def test_reply_draft_threads_and_quotes(tmp_path, fake):
                   {"folder": "INBOX", "uid": 1, "body": "Thanks, received!"})
     assert not result.is_error, result.content[0].text
     draft = parse_draft(fake, result.data["uid"])
-    assert draft["To"] == "no-reply@sj.se"
-    assert draft["Subject"] == "Re: Kvitto juni"
-    assert draft["In-Reply-To"] == "<orig-1@sj.se>"
-    assert "<orig-1@sj.se>" in draft["References"]
+    assert draft["To"] == "no-reply@rail.example"
+    assert draft["Subject"] == "Re: Receipt June"
+    assert draft["In-Reply-To"] == "<orig-1@rail.example>"
+    assert "<orig-1@rail.example>" in draft["References"]
     content = draft.get_content()
     assert content.startswith("Thanks, received!")
-    assert "> Your receipt: 450 SEK" in content
+    assert "> Your receipt: 42.00 EUR" in content
 
 
 def test_reply_all_excludes_own_address(tmp_path, fake):
@@ -131,7 +131,7 @@ def test_forward_draft_wraps_original(tmp_path, fake):
                   {"folder": "INBOX", "uid": 1, "to": ["colleague@example.org"],
                    "body": "FYI for the claim."})
     draft = parse_draft(fake, result.data["uid"])
-    assert draft["Subject"] == "Fwd: Kvitto juni"
+    assert draft["Subject"] == "Fwd: Receipt June"
     content = draft.get_content()
     assert "FYI for the claim." in content
-    assert "Forwarded message" in content and "450 SEK" in content
+    assert "Forwarded message" in content and "42.00 EUR" in content

@@ -21,9 +21,9 @@ def test_criteria_default_all():
 
 def test_criteria_combined():
     criteria = build_search_criteria(
-        from_addr="sj.se", subject="receipt", since="2026-06-01", unseen_only=True
+        from_addr="rail.example", subject="receipt", since="2026-06-01", unseen_only=True
     )
-    assert criteria == ["FROM", "sj.se", "SUBJECT", "receipt",
+    assert criteria == ["FROM", "rail.example", "SUBJECT", "receipt",
                         "SINCE", date(2026, 6, 1), "UNSEEN"]
 
 
@@ -51,7 +51,7 @@ class _SearchRecorder:
 def test_search_uses_utf8_only_for_non_ascii_terms():
     rec = _SearchRecorder()
     imap_search(rec, ["SUBJECT", "hello"])          # ascii -> default path
-    imap_search(rec, ["SUBJECT", "Kvitto för José"])  # non-ascii -> UTF-8
+    imap_search(rec, ["SUBJECT", "Receipt för José"])  # non-ascii -> UTF-8
     imap_search(rec, ["FROM", "José <j@x.se>"])       # non-ascii -> UTF-8
     assert rec.calls[0][1] is None
     assert rec.calls[1][1] == "UTF-8"
@@ -63,7 +63,7 @@ def test_search_uses_utf8_only_for_non_ascii_terms():
 
 def raw_headers(subject: str, msg_id: str) -> bytes:
     return (
-        f"Subject: {subject}\r\nFrom: SJ <no-reply@sj.se>\r\nTo: user@example.com\r\n"
+        f"Subject: {subject}\r\nFrom: Rail <no-reply@rail.example>\r\nTo: user@example.com\r\n"
         f"Date: Mon, 01 Jun 2026 10:00:00 +0200\r\nMessage-ID: {msg_id}\r\n\r\n"
     ).encode()
 
@@ -71,8 +71,8 @@ def raw_headers(subject: str, msg_id: str) -> bytes:
 class FakeClient:
     def __init__(self):
         full = EmailMessage()
-        full["From"] = "SJ <no-reply@sj.se>"
-        full["Subject"] = "Kvitto"
+        full["From"] = "Rail <no-reply@rail.example>"
+        full["Subject"] = "Receipt"
         full.set_content("receipt body")
         self._full = bytes(full)
         self.appended: list[tuple] = []
@@ -86,7 +86,7 @@ class FakeClient:
         for uid in uids:
             out[uid] = {
                 b"BODY[HEADER.FIELDS (SUBJECT FROM TO CC DATE MESSAGE-ID IN-REPLY-TO REFERENCES)]":
-                    raw_headers(f"Kvitto {uid}", f"<m{uid}@sj.se>"),
+                    raw_headers(f"Receipt {uid}", f"<m{uid}@rail.example>"),
                 b"BODY[]": self._full,
                 b"FLAGS": (b"\\Seen",) if uid % 2 == 0 else (),
                 b"RFC822.SIZE": 1000 + uid,
@@ -101,10 +101,10 @@ class FakeClient:
 def test_fetch_summaries_parses_headers_and_flags():
     client = FakeClient()
     summaries = fetch_summaries(client, "INBOX", [3, 4])
-    assert [s["subject"] for s in summaries] == ["Kvitto 3", "Kvitto 4"]
+    assert [s["subject"] for s in summaries] == ["Receipt 3", "Receipt 4"]
     assert summaries[0]["unread"] is True and summaries[1]["unread"] is False
-    assert summaries[0]["message_id"] == "<m3@sj.se>"
-    assert summaries[0]["from"] == "SJ <no-reply@sj.se>"
+    assert summaries[0]["message_id"] == "<m3@rail.example>"
+    assert summaries[0]["from"] == "Rail <no-reply@rail.example>"
     assert summaries[1]["size_bytes"] == 1004
 
 
