@@ -30,6 +30,7 @@ Bridge's localhost IMAP/SMTP, running locally on macOS.
 - Bridge password read from Proton Pass via `pass-cli` (binary auto-discovered);
   never stored on disk.
 - Append-only audit log at `~/.mcp-proton-email/audit.log` (no message bodies).
+- Supports Python 3.10–3.14; tested in CI on Linux and macOS across all five.
 
 ### Security
 
