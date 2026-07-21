@@ -111,11 +111,19 @@ def load_config() -> Config:
     pass_items_raw = _env("PASS_ITEMS")
     pass_items = None
     if pass_items_raw:
-        pass_items = tuple(i.strip() for i in pass_items_raw.split(",") if i.strip())
+        # Keep positions (do NOT drop blanks) — PASS_ITEMS aligns 1:1 with
+        # USERNAMES, so a silently-dropped blank would map accounts to the
+        # wrong item, i.e. the wrong Bridge password.
+        pass_items = tuple(i.strip() for i in pass_items_raw.split(","))
         if len(pass_items) != len(usernames):
             raise ConfigError(
                 f"{ENV_PREFIX}PASS_ITEMS has {len(pass_items)} entries but "
                 f"{ENV_PREFIX}USERNAMES has {len(usernames)} — they must match 1:1."
+            )
+        if not all(pass_items):
+            raise ConfigError(
+                f"{ENV_PREFIX}PASS_ITEMS has an empty entry; each account needs a "
+                "non-empty item title (order matters — it aligns with USERNAMES)."
             )
 
     cfg = Config(

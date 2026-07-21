@@ -54,6 +54,15 @@ def test_pass_items_length_must_match_usernames(monkeypatch):
         load_config()
 
 
+def test_pass_items_positional_blank_rejected(monkeypatch):
+    # A blank entry must NOT be silently dropped — that would misalign each
+    # account with the wrong item (and thus the wrong Bridge password).
+    monkeypatch.setenv("PROTONMCP_USERNAMES", "a@x.com,b@y.com")
+    monkeypatch.setenv("PROTONMCP_PASS_ITEMS", "bridge-a,")
+    with pytest.raises(ConfigError, match="PASS_ITEMS"):
+        load_config()
+
+
 def test_pass_item_for_unknown_account_raises():
     cfg = load_config()
     with pytest.raises(KeyError):

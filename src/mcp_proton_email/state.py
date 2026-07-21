@@ -65,6 +65,11 @@ class AppState:
         # Default From is the selected account's own address (each account can
         # only send as its own addresses — Bridge enforces this too). For
         # multi-account sending, add each address to PROTONMCP_SEND_FROM.
+        #
+        # Note: the allowlist is flat, not bound per-account. That is safe only
+        # because no tool exposes a caller-supplied From — every send passes
+        # from_addr=None, so From always defaults to the selected account. If a
+        # future tool ever plumbs a caller From, bind the allowlist per account.
         default = (account or self.config.primary_username)
         sender = (from_addr or default).strip().lower()
         if sender not in self.config.send_from:
