@@ -12,6 +12,7 @@ AUDIT_DIR = Path.home() / ".mcp-proton-email"
 
 MAX_RESULTS_CAP = 200
 MAX_BODY_CHARS_CAP = 200_000
+MAX_ATTACHMENT_CHARS_CAP = 200_000
 MAX_ATTACHMENT_SOURCE_BYTES = 10 * 1024 * 1024
 
 
@@ -103,7 +104,7 @@ def load_config() -> Config:
         tls_ca_file=_env("TLS_CA_FILE"),
         max_results=_env_int("MAX_RESULTS", 50, cap=MAX_RESULTS_CAP),
         max_body_chars=_env_int("MAX_BODY_CHARS", 50_000, cap=MAX_BODY_CHARS_CAP),
-        max_attachment_chars=_env_int("MAX_ATTACHMENT_CHARS", 20_000),
+        max_attachment_chars=_env_int("MAX_ATTACHMENT_CHARS", 20_000, cap=MAX_ATTACHMENT_CHARS_CAP),
     )
 
     non_loopback = [

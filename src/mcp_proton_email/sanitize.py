@@ -28,6 +28,10 @@ def register_secret(value: str | None) -> None:
 
 
 def redact(text: str) -> str:
+    # Exact-match scrub of the literal secret. (A secret re-encoded by some
+    # other layer — e.g. base64 in an SMTP AUTH blob — would not match, but no
+    # code path emits the credential in such a form; smtplib/imaplib auth
+    # exceptions carry server responses, not the password.)
     for secret in _REGISTERED_SECRETS:
         if secret in text:
             text = text.replace(secret, "[redacted]")
