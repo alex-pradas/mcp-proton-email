@@ -21,12 +21,17 @@ class AppState:
     secrets: SecretProvider
     connections: dict[str, MailConnection] = field(default_factory=dict)
 
-    def connection(self, account: str | None = None) -> MailConnection:
+    def validate_account(self, account: str | None) -> str:
+        """Resolve and validate an account selector against configured usernames."""
         username = (account or self.config.primary_username).strip()
         if username not in self.config.usernames:
             raise ToolError(
                 f"unknown account {username!r}; configured accounts: {', '.join(self.config.usernames)}"
             )
+        return username
+
+    def connection(self, account: str | None = None) -> MailConnection:
+        username = self.validate_account(account)
         if username not in self.connections:
             self.connections[username] = MailConnection(self.config, self.secrets, username)
         return self.connections[username]

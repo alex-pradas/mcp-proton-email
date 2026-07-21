@@ -92,3 +92,20 @@ def test_send_absent_without_allow_send(tmp_path, audit_dir, sent_messages):
     result = call_send(make_config(tmp_path, allow_send=False))
     assert result.is_error, "send_email must not even exist without ALLOW_SEND (A2)"
     assert sent_messages == []
+
+
+def test_send_unknown_account_rejected_before_transmit(tmp_path, audit_dir, sent_messages):
+    async def accept(message, response_type, params, context):
+        return ElicitResult(action="accept", content={})
+
+    async def run():
+        async with Client(build_server(make_config(tmp_path, allow_send=True)),
+                          elicitation_handler=accept) as client:
+            return await client.call_tool(
+                "send_email", {**SEND_ARGS, "account": "stranger@example.com"},
+                raise_on_error=False,
+            )
+
+    result = asyncio.run(run())
+    assert result.is_error and "unknown account" in result.content[0].text
+    assert sent_messages == [], "an unknown account must never reach SMTP"

@@ -72,6 +72,9 @@ def register_send_tools(mcp: FastMCP, state: AppState) -> None:
     async def _gated_send(ctx: Context, tool: str, msg: EmailMessage, account: str | None,
                           audit_fields: dict[str, Any]) -> dict[str, Any]:
         state.require_send(tool)
+        # SMTP login bypasses state.connection(), so validate the account here
+        # too — an unknown account must be rejected, not silently used.
+        state.validate_account(account)
         await _confirm_with_human(ctx, msg, tool)
         try:
             await anyio.to_thread.run_sync(_smtp_send, state, account, msg)
