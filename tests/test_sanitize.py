@@ -72,3 +72,28 @@ def test_collapse_error_redacts():
     collapsed = collapse_error(err)
     assert collapsed["name"] == "RuntimeError"
     assert "hunter2" not in collapsed["message"]
+
+
+def test_registered_secret_scrubbed_even_bare(monkeypatch):
+    # A bare secret with no label must still be scrubbed once registered —
+    # closes the "redaction is label-shape-only" gap.
+    from mcp_proton_email import sanitize
+
+    monkeypatch.setattr(sanitize, "_REGISTERED_SECRETS", set())
+    sanitize.register_secret("Xk9-BridgePass-Zq2wv")
+    # every shape: bare, in an IMAP command echo, inside a URL
+    for text in [
+        "A1 LOGIN alex@proton.me Xk9-BridgePass-Zq2wv",
+        "unexpected token Xk9-BridgePass-Zq2wv near end",
+        "connect imap://alex@127.0.0.1/ with Xk9-BridgePass-Zq2wv",
+    ]:
+        assert "Xk9-BridgePass-Zq2wv" not in sanitize.redact(text)
+
+
+def test_register_secret_ignores_short_values(monkeypatch):
+    # Don't register trivially-short strings (would over-redact common text).
+    from mcp_proton_email import sanitize
+
+    monkeypatch.setattr(sanitize, "_REGISTERED_SECRETS", set())
+    sanitize.register_secret("abc")
+    assert sanitize.redact("the abc of it") == "the abc of it"

@@ -13,6 +13,8 @@ import subprocess
 import threading
 from pathlib import Path
 
+from .sanitize import register_secret
+
 AGENT_REASON = "mcp-proton-email: Bridge IMAP/SMTP login"
 
 _SESSION_ERROR_MARKERS = ("auth", "session", "login", "unauthorized", "expired", "token")
@@ -110,6 +112,9 @@ class SecretProvider:
             password = result.stdout.strip()
             if not password:
                 raise PassError(f"pass-cli returned an empty password field for item {self._item!r}")
+            # Guarantee the literal secret is scrubbed from any error/log output,
+            # regardless of the shape it might appear in (defense in depth).
+            register_secret(password)
             self._cache = password
             return password
 

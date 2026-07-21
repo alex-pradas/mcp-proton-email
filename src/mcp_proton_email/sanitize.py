@@ -13,8 +13,24 @@ _SECRET_PATTERNS = [
 
 _FILENAME_BAD = re.compile(r'[\x00-\x1f<>:"|?*]')
 
+# Exact secret values registered at runtime (e.g. the Bridge password when it is
+# read into memory). The pattern-based redaction below is a best-effort backstop
+# for labelled secrets; this set guarantees the *actual* secret is scrubbed from
+# any output regardless of the shape it appears in. Short values are ignored to
+# avoid over-redacting ordinary text.
+_REGISTERED_SECRETS: set[str] = set()
+_MIN_SECRET_LEN = 8
+
+
+def register_secret(value: str | None) -> None:
+    if value and len(value) >= _MIN_SECRET_LEN:
+        _REGISTERED_SECRETS.add(value)
+
 
 def redact(text: str) -> str:
+    for secret in _REGISTERED_SECRETS:
+        if secret in text:
+            text = text.replace(secret, "[redacted]")
     for pattern in _SECRET_PATTERNS:
         if pattern.groups >= 2:
             text = pattern.sub(r"://\1:[redacted]@", text)
