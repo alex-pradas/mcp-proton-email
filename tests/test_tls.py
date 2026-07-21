@@ -16,7 +16,7 @@ def test_loopback_is_unverified_selfsigned(host):
     assert ctx.check_hostname is False
 
 
-@pytest.mark.parametrize("host", ["192.0.2.1", "bridge.example.com", "100.115.223.108"])
+@pytest.mark.parametrize("host", ["192.0.2.1", "bridge.example.com", "203.0.113.1"])
 def test_non_loopback_is_verified(host):
     ctx = bridge_ssl_context(host)
     assert ctx.verify_mode == ssl.CERT_REQUIRED

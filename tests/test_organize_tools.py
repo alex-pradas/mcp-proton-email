@@ -17,7 +17,7 @@ from test_policy import make_config
 class OrganizeFakeClient:
     def __init__(self):
         self.folders = ["INBOX", "Archive", "Trash", "All Mail", "Drafts",
-                        "Folders/AI Corner", "Labels/todo"]
+                        "Folders/Projects", "Labels/todo"]
         self.moves: list[tuple] = []
         self.copies: list[tuple] = []
         self.flag_ops: list[tuple] = []
@@ -93,9 +93,9 @@ def call(tmp_path, tool, args):
 
 def test_move_to_existing_folder(tmp_path, fake):
     result = call(tmp_path, "move_message",
-                  {"folder": "INBOX", "uid": 7, "target_folder": "Folders/AI Corner"})
+                  {"folder": "INBOX", "uid": 7, "target_folder": "Folders/Projects"})
     assert not result.is_error
-    assert fake.moves == [("INBOX", (7,), "Folders/AI Corner")]
+    assert fake.moves == [("INBOX", (7,), "Folders/Projects")]
 
 
 def test_move_to_missing_folder_refused(tmp_path, fake):

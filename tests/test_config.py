@@ -28,7 +28,7 @@ def test_username_required(monkeypatch):
         load_config()
 
 
-@pytest.mark.parametrize("host", ["192.168.50.2", "evil.example.com", "0.0.0.0"])
+@pytest.mark.parametrize("host", ["192.0.2.1", "evil.example.com", "0.0.0.0"])
 def test_non_loopback_refused(monkeypatch, host):
     monkeypatch.setenv("PROTONMCP_IMAP_HOST", host)
     with pytest.raises(ConfigError, match="loopback"):
@@ -36,9 +36,9 @@ def test_non_loopback_refused(monkeypatch, host):
 
 
 def test_non_loopback_override(monkeypatch):
-    monkeypatch.setenv("PROTONMCP_SMTP_HOST", "192.168.50.2")
+    monkeypatch.setenv("PROTONMCP_SMTP_HOST", "192.0.2.1")
     monkeypatch.setenv("PROTONMCP_ALLOW_NON_LOOPBACK", "true")
-    assert load_config().smtp_host == "192.168.50.2"
+    assert load_config().smtp_host == "192.0.2.1"
 
 
 def test_localhost_is_loopback(monkeypatch):

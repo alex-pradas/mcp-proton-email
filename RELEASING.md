@@ -27,6 +27,5 @@ The `publish` workflow builds (`uv build`) and uploads to PyPI. Verify with:
 uvx mcp-proton-email@latest --help 2>&1 | head -1   # cold-start from PyPI
 ```
 
-Full private development history (pre-public squash) lives in the local
-`private-history` branch and `~/mcp-proton-email-private-history.bundle`.
-Never push that branch.
+The public history was squashed from a private development branch. Keep any
+local pre-squash backups local — never push them.
