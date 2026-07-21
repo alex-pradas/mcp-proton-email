@@ -8,9 +8,12 @@ import ssl
 import threading
 from collections.abc import Callable
 from datetime import date, datetime
+from typing import TypeVar
 
 from imapclient import IMAPClient
 from imapclient.imap4 import IMAP4WithTimeout
+
+_T = TypeVar("_T")
 
 from .config import Config, is_loopback
 from .secrets import SecretProvider
@@ -85,7 +88,7 @@ class MailConnection:
         client.login(self.username, self._secrets.get_password())
         return client
 
-    def run[T](self, fn: Callable[[IMAPClient], T]) -> T:
+    def run(self, fn: Callable[[IMAPClient], _T]) -> _T:
         """Run fn against a live connection, reconnecting once on failure."""
         with self._lock:
             if self._client is None:

@@ -3,7 +3,7 @@
 import json
 import os
 import threading
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROTATE_BYTES = 5 * 1024 * 1024
@@ -22,7 +22,7 @@ class AuditLog:
 
     def record(self, tool: str, status: str, **fields: object) -> None:
         entry: dict[str, object] = {
-            "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
+            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "tool": tool,
             "status": status,
         }

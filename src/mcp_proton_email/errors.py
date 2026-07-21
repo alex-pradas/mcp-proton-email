@@ -2,16 +2,20 @@
 
 import functools
 from collections.abc import Callable
+from typing import ParamSpec, TypeVar
 
 from fastmcp.exceptions import ToolError
 
 from .sanitize import collapse_error
 from .secrets import PassError, PassSessionError
 
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
 
-def tool_guard[**P, T](fn: Callable[P, T]) -> Callable[P, T]:
+
+def tool_guard(fn: Callable[_P, _R]) -> Callable[_P, _R]:
     @functools.wraps(fn)
-    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
         try:
             return fn(*args, **kwargs)
         except (ToolError, PassSessionError, PassError):
@@ -23,9 +27,9 @@ def tool_guard[**P, T](fn: Callable[P, T]) -> Callable[P, T]:
     return wrapper
 
 
-def tool_guard_async[**P, T](fn: Callable[P, T]) -> Callable[P, T]:
+def tool_guard_async(fn: Callable[_P, _R]) -> Callable[_P, _R]:
     @functools.wraps(fn)
-    async def wrapper(*args: P.args, **kwargs: P.kwargs):
+    async def wrapper(*args: _P.args, **kwargs: _P.kwargs):
         try:
             return await fn(*args, **kwargs)
         except (ToolError, PassSessionError, PassError):

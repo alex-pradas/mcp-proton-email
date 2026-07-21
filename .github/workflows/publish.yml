@@ -11,11 +11,13 @@ on:
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         # macOS is the runtime target (Proton Bridge); Linux catches the
-        # platform-divergent memory/subprocess paths cheaply.
+        # platform-divergent memory/subprocess paths. Test every actively
+        # supported Python version (3.9 is EOL).
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.14"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
