@@ -2,6 +2,14 @@
 
 # mcp-proton-email
 
+> **Disclaimer.** This project was implemented by Claude (Fable and Opus) to
+> meet my own requirement: a safe way to give an LLM access to my Proton Mail.
+> I co-developed and reviewed it to a standard I'm comfortable using with my own
+> mailbox through Claude Code — but that is *my* judgement, not a guarantee of
+> security. Review it and decide for yourself before trusting it with your mail.
+> I'm sharing it so others don't have to build their own from scratch, or can
+> use it as a starting point.
+
 A **safe-by-default MCP server** that gives Claude access to your Proton Mail
 through [Proton Mail Bridge](https://proton.me/mail/bridge)'s localhost
 IMAP/SMTP. Runs entirely on your Mac — your mail never touches any third-party
