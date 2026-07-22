@@ -56,10 +56,17 @@ brew install --cask proton-mail-bridge
 
 Open **Proton Mail Bridge**, sign in to your Proton account, and leave it
 running (it auto-starts at login). Then open Bridge → **Settings** → your
-account → **Mailbox details** and note two things:
+account → **Mailbox details** and note:
 
 - your **IMAP username** (usually your Proton email address)
 - the Bridge-generated **password** (this is *not* your Proton password)
+- the **Hostname** and **Port** — the server defaults to Bridge's standard
+  `127.0.0.1:1143` (IMAP) and `127.0.0.1:1025` (SMTP), so you normally don't
+  set anything. **But confirm they match on this screen** — Bridge lets you
+  change the ports (and may pick a different one if the default is taken). If
+  yours differ, add `--env PROTONMCP_IMAP_PORT=…` / `PROTONMCP_SMTP_PORT=…` to
+  the registration in step 4 (the host stays loopback); otherwise you'll get a
+  confusing "connection refused".
 
 ### 2. Install the Proton Pass CLI and log in
 
