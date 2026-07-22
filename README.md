@@ -9,6 +9,8 @@
 > security. Review it and decide for yourself before trusting it with your mail.
 > I'm sharing it so others don't have to build their own from scratch, or can
 > use it as a starting point.
+>
+> — Alex
 
 A **safe-by-default MCP server** that gives Claude access to your Proton Mail
 through [Proton Mail Bridge](https://proton.me/mail/bridge)'s localhost
